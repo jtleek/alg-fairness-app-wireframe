@@ -9,6 +9,9 @@ css: styles.css
 ---
 
 ```{r setup, include=FALSE}
+
+### To change to new data set, replace penguins everywhere :) 
+
 library(flexdashboard)
 library(palmerpenguins)
 library(caret) 
@@ -33,6 +36,7 @@ Column {data-width=300}
         orientation = "vertical",
         add_rank_list(
           text = "Not used",
+          # change the variable names
           labels = names(penguins)[-3],
           input_id = "out_model"
         ),
@@ -55,9 +59,11 @@ Column {data-width=400}
 
 model1 <- reactive({
   if(length(input$in_model) > 0){
+    #change this to new data
     lm1 = lm(as.formula(paste0("bill_length_mm ~ ",paste0(input$in_model,collapse="+"))),
          data=penguins)
   }else{
+    # change to new data
     lm1 = lm(bill_length_mm ~ 1,data=penguins)
   }
   
@@ -67,7 +73,8 @@ model1 <- reactive({
 
 ```{r}
 renderPlot({ 
-   
+  
+   # changed to new data
 penguins %>%
     add_predictions(model1()) %>%
     ggplot(aes_string(x="bill_length_mm",y="pred")) +
@@ -91,6 +98,7 @@ Penguins data
 
 
 ```{r}
+   # changed to new data
 datatable(penguins,fillContainer = FALSE) 
 ```
 
@@ -104,6 +112,7 @@ Column {.sidebar}
 
 
 ```{r}
+   # changed to new data
 radioButtons("plottype", h4("Plot type"),
                         choices = c("scatterplot","boxplot"),selected="scatterplot")
 
@@ -122,6 +131,7 @@ Column
 
 ```{r}
 
+# change to new data
 renderPlot(
   if(input$plottype=="scatterplot"){
     penguins %>% 
@@ -132,5 +142,6 @@ renderPlot(
   }
 )
 ```
+
 
 
