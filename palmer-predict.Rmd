@@ -1,0 +1,136 @@
+---
+title: "Penguin predictions!"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+css: styles.css
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(palmerpenguins)
+library(caret) 
+library(DT)
+library(ggplot2)
+library(sortable)
+library(modelr)
+```
+
+Build model
+=====================================  
+   
+
+
+Column {data-width=300}
+----------------------------------------------------------------------- 
+
+```{r}
+  bucket_list(
+        header = "Drag variables to build your model",
+        group_name = "bucket_list_group",
+        orientation = "vertical",
+        add_rank_list(
+          text = "Not used",
+          labels = names(penguins)[-3],
+          input_id = "out_model"
+        ),
+        add_rank_list(
+          text = "Used",
+          labels = NULL,
+          input_id = "in_model"
+        )
+      )
+```
+
+
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+### Predictions vs truth
+
+```{r}
+
+model1 <- reactive({
+  if(length(input$in_model) > 0){
+    lm1 = lm(as.formula(paste0("bill_length_mm ~ ",paste0(input$in_model,collapse="+"))),
+         data=penguins)
+  }else{
+    lm1 = lm(bill_length_mm ~ 1,data=penguins)
+  }
+  
+})
+
+```
+
+```{r}
+renderPlot({ 
+   
+penguins %>%
+    add_predictions(model1()) %>%
+    ggplot(aes_string(x="bill_length_mm",y="pred")) +
+    geom_point()
+
+})
+```
+
+### RMSE
+
+```{r}
+renderText({
+  sqrt(sum(model1()$residuals^2))
+})
+```
+
+
+
+Penguins data
+===================================== 
+
+
+```{r}
+datatable(penguins,fillContainer = FALSE) 
+```
+
+
+Explore Penguins Data
+===================================== 
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+
+
+```{r}
+radioButtons("plottype", h4("Plot type"),
+                        choices = c("scatterplot","boxplot"),selected="scatterplot")
+
+selectInput("xvariable", h4("Pick x-variable"),
+                        choices = colnames(penguins), selected="body_mass_g")
+
+selectInput("yvariable", h4("Pick y-variable"),
+                        choices = colnames(penguins), selected="bill_length_mm")
+
+```
+
+Column 
+-----------------------------------------------------------------------
+
+### Penguins plot
+
+```{r}
+
+renderPlot(
+  if(input$plottype=="scatterplot"){
+    penguins %>% 
+      ggplot(aes_string(x=input$xvariable,y=input$yvariable)) + geom_point()
+  }else{
+    penguins %>% 
+      ggplot(aes_string(x=input$xvariable,y=input$yvariable)) + geom_boxplot()
+  }
+)
+```
+
+
