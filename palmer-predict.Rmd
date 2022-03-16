@@ -1,5 +1,5 @@
 ---
-title: "Penguin predictions!"
+title: "Health Predictions"
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
@@ -11,7 +11,6 @@ css: styles.css
 ```{r setup, include=FALSE}
 
 ### To change to new data set, replace penguins everywhere :) 
-
 library(flexdashboard)
 library(palmerpenguins)
 library(caret) 
@@ -19,11 +18,14 @@ library(DT)
 library(ggplot2)
 library(sortable)
 library(modelr)
+health_data = read.csv("updated_data.csv", header = TRUE ,sep = ",")
+exists("health_data")
 ```
+
 
 Build model
 =====================================  
-   
+  
 
 
 Column {data-width=300}
@@ -37,7 +39,7 @@ Column {data-width=300}
         add_rank_list(
           text = "Not used",
           # change the variable names
-          labels = names(penguins)[-3],
+          labels = names(health_data),
           input_id = "out_model"
         ),
         add_rank_list(
@@ -60,11 +62,11 @@ Column {data-width=400}
 model1 <- reactive({
   if(length(input$in_model) > 0){
     #change this to new data
-    lm1 = lm(as.formula(paste0("bill_length_mm ~ ",paste0(input$in_model,collapse="+"))),
-         data=penguins)
+    lm1 = lm(as.formula(paste0("trig_mean-normal_tm1 ~ ",paste0(input$in_model,collapse="+"))),
+         data=health_data)
   }else{
     # change to new data
-    lm1 = lm(bill_length_mm ~ 1,data=penguins)
+    lm1 = lm(trig_mean-normal_tm1 ~ 1,data=health_data)
   }
   
 })
@@ -75,9 +77,9 @@ model1 <- reactive({
 renderPlot({ 
   
    # changed to new data
-penguins %>%
+health_data %>%
     add_predictions(model1()) %>%
-    ggplot(aes_string(x="bill_length_mm",y="pred")) +
+    ggplot(aes_string(x="trig_mean-normal_tm1",y="pred")) +
     geom_point()
 
 })
@@ -93,17 +95,17 @@ renderText({
 
 
 
-Penguins data
+Health Data
 ===================================== 
 
 
 ```{r}
    # changed to new data
-datatable(penguins,fillContainer = FALSE) 
+datatable(health_data,fillContainer = FALSE) 
 ```
 
 
-Explore Penguins Data
+Explore Health Data
 ===================================== 
 
 Column {.sidebar}
@@ -117,27 +119,27 @@ radioButtons("plottype", h4("Plot type"),
                         choices = c("scatterplot","boxplot"),selected="scatterplot")
 
 selectInput("xvariable", h4("Pick x-variable"),
-                        choices = colnames(penguins), selected="body_mass_g")
+                        choices = colnames(health_data), selected="trig_mean-normal_tm1")
 
 selectInput("yvariable", h4("Pick y-variable"),
-                        choices = colnames(penguins), selected="bill_length_mm")
+                        choices = colnames(health_data), selected="gagne_sum_t")
 
 ```
 
 Column 
 -----------------------------------------------------------------------
 
-### Penguins plot
+### Health plot
 
 ```{r}
 
 # change to new data
 renderPlot(
   if(input$plottype=="scatterplot"){
-    penguins %>% 
+    health_data %>% 
       ggplot(aes_string(x=input$xvariable,y=input$yvariable)) + geom_point()
   }else{
-    penguins %>% 
+    health_data %>% 
       ggplot(aes_string(x=input$xvariable,y=input$yvariable)) + geom_boxplot()
   }
 )
