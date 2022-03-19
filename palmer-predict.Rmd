@@ -62,11 +62,12 @@ Column {data-width=400}
 model1 <- reactive({
   if(length(input$in_model) > 0){
     #change this to new data
-    lm1 = lm(as.formula(paste0("trig_mean-normal_tm1 ~ ",paste0(input$in_model,collapse="+"))),
+    ###change the hyphen to underscore
+    lm1 = lm(as.formula(paste0("Chronic_illnesses ~ ",paste0(input$in_model,collapse="+"))),
          data=health_data)
   }else{
     # change to new data
-    lm1 = lm(trig_mean-normal_tm1 ~ 1,data=health_data)
+    lm1 = lm(Chronic_illnesses ~ 1,data=health_data)
   }
   
 })
@@ -79,7 +80,7 @@ renderPlot({
    # changed to new data
 health_data %>%
     add_predictions(model1()) %>%
-    ggplot(aes_string(x="trig_mean-normal_tm1",y="pred")) +
+    ggplot(aes_string(x="Chronic_illnesses",y="pred")) +
     geom_point()
 
 })
@@ -93,6 +94,19 @@ renderText({
 })
 ```
 
+Data Description/Dictionary
+===================================== 
+Predictor: Chronic_illnesses
+
+Factors:
+
+* Normal_mean_creatinine- An indicator of kidney function
+* Normal_mean_hematocrit - Red blood cell count
+* Normal_mean_GHbA1c - Plasma glucose; used to diagnose diabetes
+* Normal_mean_LDL - Low denisty lipids; used to evaluate cholestorol 
+* Normal_mean_BNP - Brain natriuretic peptide; indicates risk of heart failure
+* Normal_mean_sodiumm - could indicate heart failure or kidney disease
+* Normal_mean_triglycerides - could indicate risk of diabetes or heart disease
 
 
 Health Data
@@ -119,10 +133,10 @@ radioButtons("plottype", h4("Plot type"),
                         choices = c("scatterplot","boxplot"),selected="scatterplot")
 
 selectInput("xvariable", h4("Pick x-variable"),
-                        choices = colnames(health_data), selected="trig_mean-normal_tm1")
+                        choices = colnames(health_data), selected="trig_mean_normal_tm1")
 
 selectInput("yvariable", h4("Pick y-variable"),
-                        choices = colnames(health_data), selected="gagne_sum_t")
+                        choices = colnames(health_data), selected="Chronic_illnesses")
 
 ```
 
