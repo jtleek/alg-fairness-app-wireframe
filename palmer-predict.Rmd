@@ -111,32 +111,53 @@ Factors:
 
 Health Data 
 ===================================== 
-Column {.sidebar}
------------------------------------------------------------------------
 ```{r}
-selectInput("variable","Data:",
-                  c("Race" = "Race",
-                  "Gender" = "Female",
-                  "Age 18-24" = "Age_18_to_24",
-                  "Age 25-34" = "Age_25_to_34",
-                  "Age 35-44" = "Age_35_to_44",
-                  "Age 45-54" = "Age_45_to_54",
-                  "Age 55-64" = "Age_55_to_64",
-                  "Age 65-74" = "Age_65_to_74",
-                  "Age 75+" = "Age_75+"), multiple = TRUE)
+fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+
+      checkboxGroupInput("checkGroups", 
+                         label = "Include", 
+                         choices = c("Race" = "Race",
+                                      "Gender" = "Female",
+                                      "Age 18-24" = "Age_18_to_24",
+                                      "Age 25-34" = "Age_25_to_34",
+                                      "Age 35-44" = "Age_35_to_44",
+                                      "Age 45-54" = "Age_45_to_54",
+                                      "Age 55-64" = "Age_55_to_64",
+                                      "Age 65-74" = "Age_65_to_74",
+                                      "Age 75+" = "Age_75+")),
+
+      checkboxInput("checkbox", "Include Replies"),
+      actionButton("Button", "Update")
+    ),
+    
+    mainPanel(
+      showOutput("table")
+    )
+  )
+)
+
+# selectInput("variable","Data:",
+#                   c("Race" = "Race",
+#                   "Gender" = "Female",
+#                   "Age 18-24" = "Age_18_to_24",
+#                   "Age 25-34" = "Age_25_to_34",
+#                   "Age 35-44" = "Age_35_to_44",
+#                   "Age 45-54" = "Age_45_to_54",
+#                   "Age 55-64" = "Age_55_to_64",
+#                   "Age 65-74" = "Age_65_to_74",
+#                   "Age 75+" = "Age_75+"), multiple = TRUE)
 ```
- 
-Column
------------------------------------------------------------------------
+
 ```{r}
-     # changed to new data
+# changed to new data
 #datatable(health_data,fillContainer = FALSE) 
+
 function(input, output, session) {
-
-  load("health_data")
-
+  
   datadata <- health_data
-  makeReactiveBinding("health_data")
+  makeReactiveBinding("datadata")
 
   newData <- reactive({
 
@@ -145,12 +166,21 @@ function(input, output, session) {
 
       datadata <- health_data
 
-      datadata <- subset(health_data, rating %in% input$checkGroups)
+      datadata <- subset(datadata, rating %in% input$checkGroups)
+
 
     })
 
   })
 
+  output$table <- renderTable({
+
+    datadata <- newData()
+
+    table <- nTable(data = datadata)
+    return(table)
+
+  })
 }
 ```
 
