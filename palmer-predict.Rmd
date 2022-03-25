@@ -18,6 +18,11 @@ library(DT)
 library(ggplot2)
 library(sortable)
 library(modelr)
+library(tidyverse)
+install.packages("shiny")
+library(shiny)
+install.packages("shinydashboard")
+library(shinydashboard)
 health_data = read.csv("updated_data.csv", header = TRUE ,sep = ",")
 exists("health_data")
 ```
@@ -128,12 +133,10 @@ fluidPage(
                                       "Age 65-74" = "Age_65_to_74",
                                       "Age 75+" = "Age_75+")),
 
-      checkboxInput("checkbox", "Include Replies"),
-      actionButton("Button", "Update")
-    ),
+      checkboxInput("checkbox")),
     
     mainPanel(
-      showOutput("table")
+      tableOutput("view")
     )
   )
 )
@@ -148,40 +151,18 @@ fluidPage(
 #                   "Age 55-64" = "Age_55_to_64",
 #                   "Age 65-74" = "Age_65_to_74",
 #                   "Age 75+" = "Age_75+"), multiple = TRUE)
-```
 
-```{r}
 # changed to new data
 #datatable(health_data,fillContainer = FALSE) 
-
+data <- health_data
 function(input, output, session) {
-  
-  datadata <- health_data
-  makeReactiveBinding("datadata")
-
   newData <- reactive({
+         data <- subset(data, rating %in% input$checkGroups)
+ })
 
-    input$Button
-    isolate({
+output$view <- renderTable({ newData() })}
 
-      datadata <- health_data
-
-      datadata <- subset(datadata, rating %in% input$checkGroups)
-
-
-    })
-
-  })
-
-  output$table <- renderTable({
-
-    datadata <- newData()
-
-    table <- nTable(data = datadata)
-    return(table)
-
-  })
-}
+#shinyApp(ui = ui, server = server)
 ```
 
 
