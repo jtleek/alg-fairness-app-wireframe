@@ -19,9 +19,7 @@ library(ggplot2)
 library(sortable)
 library(modelr)
 library(tidyverse)
-install.packages("shiny")
 library(shiny)
-install.packages("shinydashboard")
 library(shinydashboard)
 health_data = read.csv("updated_data.csv", header = TRUE ,sep = ",")
 exists("health_data")
@@ -117,12 +115,12 @@ Factors:
 Health Data 
 ===================================== 
 ```{r}
-fluidPage(
+ui<-fluidPage(
   sidebarLayout(
     sidebarPanel(
 
-      checkboxGroupInput("checkGroups", 
-                         label = "Include", 
+      checkboxGroupInput(inputId="checkGroups",
+                         label = "Include",
                          choices = c("Race" = "Race",
                                       "Gender" = "Female",
                                       "Age 18-24" = "Age_18_to_24",
@@ -131,38 +129,25 @@ fluidPage(
                                       "Age 45-54" = "Age_45_to_54",
                                       "Age 55-64" = "Age_55_to_64",
                                       "Age 65-74" = "Age_65_to_74",
-                                      "Age 75+" = "Age_75+")),
+                                      "Age 75+" = "Age_75+")),),
 
-      checkboxInput("checkbox")),
-    
     mainPanel(
       tableOutput("view")
     )
   )
 )
 
-# selectInput("variable","Data:",
-#                   c("Race" = "Race",
-#                   "Gender" = "Female",
-#                   "Age 18-24" = "Age_18_to_24",
-#                   "Age 25-34" = "Age_25_to_34",
-#                   "Age 35-44" = "Age_35_to_44",
-#                   "Age 45-54" = "Age_45_to_54",
-#                   "Age 55-64" = "Age_55_to_64",
-#                   "Age 65-74" = "Age_65_to_74",
-#                   "Age 75+" = "Age_75+"), multiple = TRUE)
-
 # changed to new data
-#datatable(health_data,fillContainer = FALSE) 
+#datatable(health_data,fillContainer = FALSE)
 data <- health_data
-function(input, output, session) {
+server <-function(input, output, session) {
   newData <- reactive({
-         data <- subset(data, rating %in% input$checkGroups)
+         data <- subset(data %in% input$checkGroups)
  })
 
 output$view <- renderTable({ newData() })}
 
-#shinyApp(ui = ui, server = server)
+shinyApp(ui = ui, server = server)
 ```
 
 
