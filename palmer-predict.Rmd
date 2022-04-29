@@ -19,9 +19,15 @@ library(ggplot2)
 library(sortable)
 library(modelr)
 
-# Questions: 
-# 1. do we want some kind of train/val/test split? 
-# 2. When we use reactive data rendering, can we modify the data once? 
+# Questions/todos:
+# 1. Currently getting "Warning in predict.lm(model1(), test_dataset) :prediction from a rank-deficient fit may be misleading"
+
+# Todos:
+# 1. Switch to binary classifier?
+# 2. Make it easier to select features. 
+# 3. Make relationship with features stronger. 
+# 4. Make it possible to gather race data etc.
+
 train_dataset = read.csv("train_data.csv", header = TRUE ,sep = ",")
 test_dataset = read.csv('test_data.csv', header=TRUE, sep=',')
 
@@ -79,8 +85,6 @@ usable_train_dataset <- reactive({
 model1 <- reactive({
   if(length(input$in_model) > 0){
     #change this to new data
-    ###change the hyphen to underscore
-    # does this make an edit
     lm1 = lm(as.formula(paste0("Chronic_illnesses ~ ",paste0(input$in_model,collapse="+"))),
          data=usable_train_dataset())
   }else{
@@ -92,7 +96,6 @@ model1 <- reactive({
 
 renderPlot({ 
   
-   # changed to new data
 test_dataset %>%
     add_predictions(model1()) %>%
     ggplot(aes_string(x="Chronic_illnesses",y="pred")) +
@@ -104,8 +107,13 @@ test_dataset %>%
 ### RMSE
 
 ```{r}
+
 renderText({
- sqrt(sum(model1()$residuals^2))
+  sqrt(
+    sum(
+      (predict(model1(), test_dataset) - test_dataset$Chronic_illnesses)^2
+      )
+    )
 })
 ```
 
