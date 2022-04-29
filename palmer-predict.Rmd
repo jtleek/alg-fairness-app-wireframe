@@ -63,6 +63,7 @@ model1 <- reactive({
   if(length(input$in_model) > 0){
     #change this to new data
     ###change the hyphen to underscore
+    # does this make an edit
     lm1 = lm(as.formula(paste0("Chronic_illnesses ~ ",paste0(input$in_model,collapse="+"))),
          data=health_data)
   }else{
