@@ -18,8 +18,17 @@ library(DT)
 library(ggplot2)
 library(sortable)
 library(modelr)
-health_data = read.csv("updated_data.csv", header = TRUE ,sep = ",")
-exists("health_data")
+
+# Questions: 
+# 1. do we want some kind of train/val/test split? 
+# 2. When we use reactive data rendering, can we modify the data once? 
+train_dataset = read.csv("train_data.csv", header = TRUE ,sep = ",")
+test_dataset = read.csv('test_data.csv', header=TRUE, sep=',')
+
+exists("train_dataset")
+exists("test_dataset")
+TOTAL_BUDGET = 1000000
+COST_PER_ROW = 25
 ```
 
 
@@ -32,6 +41,9 @@ Column {data-width=300}
 ----------------------------------------------------------------------- 
 
 ```{r}
+  sliderInput('sampleSize', 'Size of Training Dataset', min=100, max=min(nrow(train_dataset), TOTAL_BUDGET/COST_PER_ROW),
+            value=100, step=500, round=0)
+
   bucket_list(
         header = "Drag variables to build your model",
         group_name = "bucket_list_group",
@@ -39,7 +51,7 @@ Column {data-width=300}
         add_rank_list(
           text = "Not used",
           # change the variable names
-          labels = names(health_data),
+          labels = names(train_dataset),
           input_id = "out_model"
         ),
         add_rank_list(
@@ -52,12 +64,17 @@ Column {data-width=300}
 
 
 
-Column {data-width=400}
+Column {data-width=400, data-height=300}
 -----------------------------------------------------------------------
 
 ### Predictions vs truth
 
 ```{r}
+
+usable_train_dataset <- reactive({
+  train_dataset[1:input$sampleSize,]
+})
+
 
 model1 <- reactive({
   if(length(input$in_model) > 0){
@@ -65,21 +82,18 @@ model1 <- reactive({
     ###change the hyphen to underscore
     # does this make an edit
     lm1 = lm(as.formula(paste0("Chronic_illnesses ~ ",paste0(input$in_model,collapse="+"))),
-         data=health_data)
+         data=usable_train_dataset())
   }else{
     # change to new data
-    lm1 = lm(Chronic_illnesses ~ 1,data=health_data)
+    lm1 = lm(Chronic_illnesses ~ 1,data=usable_train_dataset())
   }
   
 })
 
-```
-
-```{r}
 renderPlot({ 
   
    # changed to new data
-health_data %>%
+test_dataset %>%
     add_predictions(model1()) %>%
     ggplot(aes_string(x="Chronic_illnesses",y="pred")) +
     geom_point()
@@ -91,9 +105,20 @@ health_data %>%
 
 ```{r}
 renderText({
-  sqrt(sum(model1()$residuals^2))
+ sqrt(sum(model1()$residuals^2))
 })
 ```
+
+### Remaining budget
+
+```{r}
+renderText({
+ paste('$', TOTAL_BUDGET - input$sampleSize * COST_PER_ROW)
+})
+```
+
+
+
 
 Data Description/Dictionary
 ===================================== 
@@ -115,8 +140,7 @@ Health Data
 
 
 ```{r}
-   # changed to new data
-datatable(health_data,fillContainer = FALSE) 
+datatable(test_dataset,fillContainer = FALSE) 
 ```
 
 
@@ -134,10 +158,10 @@ radioButtons("plottype", h4("Plot type"),
                         choices = c("scatterplot","boxplot"),selected="scatterplot")
 
 selectInput("xvariable", h4("Pick x-variable"),
-                        choices = colnames(health_data), selected="trig_mean_normal_tm1")
+                        choices = colnames(test_dataset), selected="trig_mean_normal_tm1")
 
 selectInput("yvariable", h4("Pick y-variable"),
-                        choices = colnames(health_data), selected="Chronic_illnesses")
+                        choices = colnames(test_dataset), selected="Chronic_illnesses")
 
 ```
 
@@ -151,10 +175,10 @@ Column
 # change to new data
 renderPlot(
   if(input$plottype=="scatterplot"){
-    health_data %>% 
+    test_dataset %>% 
       ggplot(aes_string(x=input$xvariable,y=input$yvariable)) + geom_point()
   }else{
-    health_data %>% 
+    test_dataset %>% 
       ggplot(aes_string(x=input$xvariable,y=input$yvariable)) + geom_boxplot()
   }
 )
