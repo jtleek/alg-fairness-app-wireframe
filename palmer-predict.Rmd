@@ -34,7 +34,7 @@ test_dataset = read.csv('test_data.csv', header=TRUE, sep=',')
 exists("train_dataset")
 exists("test_dataset")
 TOTAL_BUDGET = 1000000
-COST_PER_ROW = 25
+BASE_COST_PER_ROW = 25
 ```
 
 
@@ -47,8 +47,15 @@ Column {data-width=300}
 ----------------------------------------------------------------------- 
 
 ```{r}
-  sliderInput('sampleSize', 'Size of Training Dataset', min=100, max=min(nrow(train_dataset), TOTAL_BUDGET/COST_PER_ROW),
+  sliderInput('sampleSize', 'Size of Training Dataset', min=100, max=min(nrow(train_dataset), TOTAL_BUDGET/BASE_COST_PER_ROW),
             value=100, step=500, round=0)
+
+checkboxGroupInput("demographicDataToCollect", 
+                              h4("Would you like to additionally collect any demographic data?"), 
+                              choiceNames = list("Collect data on age (+$20/row)", 
+                                             "Collect data on race (+$20/row)", 
+                                             "Collect data on sex (+$20/row)"), 
+                              choiceValues=list("age", "race", "sex"))
 
   bucket_list(
         header = "Drag variables to build your model",
@@ -121,7 +128,7 @@ renderText({
 
 ```{r}
 renderText({
- paste('$', TOTAL_BUDGET - input$sampleSize * COST_PER_ROW)
+ paste('$', TOTAL_BUDGET - input$sampleSize * (BASE_COST_PER_ROW + 20 * length(input$demographicDataToCollect)))
 })
 ```
 
