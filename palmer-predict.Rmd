@@ -30,9 +30,17 @@ library(modelr)
 
 train_dataset = read.csv("train_data.csv", header = TRUE ,sep = ",")
 test_dataset = read.csv('test_data.csv', header=TRUE, sep=',')
+all_columns = names(train_dataset)
+originally_available_columns = all_columns[(all_columns != 'Chronic_illnesses') & 
+                                           (all_columns != 'Race') & 
+                                           (!startsWith(all_columns, 'Age_')) & 
+                                           (all_columns != 'Female')]
+                                                      
 
 exists("train_dataset")
 exists("test_dataset")
+exists("originally_available_columns")
+exists("all_columns")
 
 BASE_COST_PER_ROW = 25
 DEMOGRAPHICS_COST_PER_ROW = 20
@@ -43,6 +51,7 @@ n_rows_purchased <- reactiveValues(v = ORIGINAL_ROWS)
 cost_per_row <- reactiveValues(v = BASE_COST_PER_ROW)
 demographics_purchased <- reactiveValues(age = 0, sex = 0, race = 0)
 status_update_message <- reactiveValues(message='Do you wish to purchase additional training data?')
+reactive_available_columns <- reactiveValues(v = originally_available_columns)
 
 ```
 
@@ -85,6 +94,8 @@ observeEvent(input$add_race_data, {
     }else{
       if(demographics_purchased$race == 0){
         status_update_message$message = 'Data on race purchased!'
+        reactive_available_columns$v = c(reactive_available_columns$v, 'Race')
+        updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
       }
       else{
         status_update_message$message = 'Data on race was already purchased.'
@@ -105,6 +116,8 @@ observeEvent(input$add_sex_data, {
     }else{
       if(demographics_purchased$sex == 0){
         status_update_message$message = 'Data on sex purchased!'
+        reactive_available_columns$v = c(reactive_available_columns$v, 'Female')
+        updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
       }
       else{
         status_update_message$message = 'Data on sex was already purchased.'
@@ -124,6 +137,8 @@ observeEvent(input$add_age_data, {
     }else{
       if(demographics_purchased$age == 0){
         status_update_message$message = 'Data on age purchased!'
+        reactive_available_columns$v = c(reactive_available_columns$v, all_columns[startsWith(all_columns, 'Age_')])
+        updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
       }
       else{
         status_update_message$message = 'Data on age was already purchased.'
@@ -149,22 +164,11 @@ renderText({
  paste('Cost per row of data: $', cost_per_row$v, sep='')
 })
 
-  bucket_list(
-        header = "Drag variables to build your model",
-        group_name = "bucket_list_group",
-        orientation = "vertical",
-        add_rank_list(
-          text = "Not used",
-          # change the variable names
-          labels = names(train_dataset),
-          input_id = "out_model"
-        ),
-        add_rank_list(
-          text = "Used",
-          labels = NULL,
-          input_id = "in_model"
-        )
-      )
+checkboxGroupInput(
+  "variables_to_use_in_model", 
+  "Drag variables to build your model",
+  originally_available_columns)
+
 ```
 
 
@@ -183,9 +187,9 @@ usable_train_dataset <- reactive({
 
 
 model1 <- reactive({
-  if(length(input$in_model) > 0){
+  if(length(input$variables_to_use_in_model) > 0){
     #change this to new data
-    lm1 = lm(as.formula(paste0("Chronic_illnesses ~ ",paste0(input$in_model,collapse="+"))),
+    lm1 = lm(as.formula(paste0("Chronic_illnesses ~ ",paste0(input$variables_to_use_in_model,collapse="+"))),
          data=usable_train_dataset())
   }else{
     # change to new data
