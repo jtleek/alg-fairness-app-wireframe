@@ -33,8 +33,17 @@ test_dataset = read.csv('test_data.csv', header=TRUE, sep=',')
 
 exists("train_dataset")
 exists("test_dataset")
-TOTAL_BUDGET = 1000000
+
 BASE_COST_PER_ROW = 25
+DEMOGRAPHICS_COST_PER_ROW = 20
+ORIGINAL_BUDGET = 1000000
+ORIGINAL_ROWS = 100
+budget <- reactiveValues(v = ORIGINAL_BUDGET - ORIGINAL_ROWS * BASE_COST_PER_ROW)
+n_rows_purchased <- reactiveValues(v = ORIGINAL_ROWS)
+cost_per_row <- reactiveValues(v = BASE_COST_PER_ROW)
+demographics_purchased <- reactiveValues(age = 0, sex = 0, race = 0)
+status_update_message <- reactiveValues(message='Do you wish to purchase additional training data?')
+
 ```
 
 
@@ -47,15 +56,98 @@ Column {data-width=300}
 ----------------------------------------------------------------------- 
 
 ```{r}
-  sliderInput('sampleSize', 'Size of Training Dataset', min=100, max=min(nrow(train_dataset), TOTAL_BUDGET/BASE_COST_PER_ROW),
-            value=100, step=500, round=0)
 
-checkboxGroupInput("demographicDataToCollect", 
-                              h4("Would you like to additionally collect any demographic data?"), 
-                              choiceNames = list("Collect data on age (+$20/row)", 
-                                             "Collect data on race (+$20/row)", 
-                                             "Collect data on sex (+$20/row)"), 
-                              choiceValues=list("age", "race", "sex"))
+# data collection buttons
+actionButton("buy_thousand_more_rows", "Collect 1,000 more rows of data")
+actionButton("add_race_data", "Collect data on patient race")
+actionButton("add_sex_data", "Collect data on patient sex")
+actionButton("add_age_data", "Collect data on patient age")
+
+# define actions
+observeEvent(input$buy_thousand_more_rows, {
+  if((ORIGINAL_BUDGET - (n_rows_purchased$v + 1000) *  cost_per_row$v) < 0){
+    status_update_message$message = 'You do not have enough budget to purchase additional rows of training data.'
+    
+  }else{
+    n_rows_purchased$v = n_rows_purchased$v + 1000;
+    budget$v = ORIGINAL_BUDGET - n_rows_purchased$v *  cost_per_row$v;
+   status_update_message$message = '1,000 rows of training data purchased!'
+  }
+})
+
+
+observeEvent(input$add_race_data, {
+  potential_cost_per_row = (BASE_COST_PER_ROW + DEMOGRAPHICS_COST_PER_ROW * (max(demographics_purchased$race, 1) + 
+                                                                       demographics_purchased$age + 
+                                                                       demographics_purchased$sex))
+    if((ORIGINAL_BUDGET - n_rows_purchased$v *  potential_cost_per_row) < 0){
+      status_update_message$message = 'You do not have enough budget to purchase data on race.'
+    }else{
+      if(demographics_purchased$race == 0){
+        status_update_message$message = 'Data on race purchased!'
+      }
+      else{
+        status_update_message$message = 'Data on race was already purchased.'
+      }
+      demographics_purchased$race = 1;
+      cost_per_row$v = potential_cost_per_row
+      budget$v = ORIGINAL_BUDGET - n_rows_purchased$v *  cost_per_row$v;
+     
+    }
+  })
+
+observeEvent(input$add_sex_data, {
+  potential_cost_per_row = (BASE_COST_PER_ROW + DEMOGRAPHICS_COST_PER_ROW * (max(demographics_purchased$sex, 1) + 
+                                                                       demographics_purchased$age + 
+                                                                       demographics_purchased$race))
+    if((ORIGINAL_BUDGET - n_rows_purchased$v *  potential_cost_per_row) < 0){
+     status_update_message$message = 'You do not have enough budget to purchase data on sex.'
+    }else{
+      if(demographics_purchased$sex == 0){
+        status_update_message$message = 'Data on sex purchased!'
+      }
+      else{
+        status_update_message$message = 'Data on sex was already purchased.'
+      }
+      demographics_purchased$sex = 1;
+      cost_per_row$v = potential_cost_per_row
+      budget$v = ORIGINAL_BUDGET - n_rows_purchased$v *  cost_per_row$v;
+      
+    }
+  })
+observeEvent(input$add_age_data, {
+  potential_cost_per_row = (BASE_COST_PER_ROW + DEMOGRAPHICS_COST_PER_ROW * (max(demographics_purchased$age, 1) + 
+                                                                       demographics_purchased$sex + 
+                                                                       demographics_purchased$race))
+    if((ORIGINAL_BUDGET - n_rows_purchased$v *  potential_cost_per_row) < 0){
+       status_update_message$message = 'You do not have enough budget to purchase data on age.'
+    }else{
+      if(demographics_purchased$age == 0){
+        status_update_message$message = 'Data on age purchased!'
+      }
+      else{
+        status_update_message$message = 'Data on age was already purchased.'
+      }
+      demographics_purchased$age = 1;
+      cost_per_row$v = potential_cost_per_row
+      budget$v = ORIGINAL_BUDGET - n_rows_purchased$v *  cost_per_row$v;
+      
+    }
+  })
+
+renderText(status_update_message$message)
+
+renderText({
+ paste('Total remaining budget: $', as.integer(budget$v), sep='')
+})
+
+renderText({
+ paste('Total rows in dataset:', n_rows_purchased$v)
+})
+
+renderText({
+ paste('Cost per row of data: $', cost_per_row$v, sep='')
+})
 
   bucket_list(
         header = "Drag variables to build your model",
@@ -84,8 +176,9 @@ Column {data-width=400, data-height=300}
 
 ```{r}
 
+
 usable_train_dataset <- reactive({
-  train_dataset[1:input$sampleSize,]
+  train_dataset[1:n_rows_purchased$v,]
 })
 
 
@@ -124,13 +217,7 @@ renderText({
 })
 ```
 
-### Remaining budget
 
-```{r}
-renderText({
- paste('$', TOTAL_BUDGET - input$sampleSize * (BASE_COST_PER_ROW + 20 * length(input$demographicDataToCollect)))
-})
-```
 
 
 
