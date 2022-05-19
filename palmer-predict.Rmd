@@ -18,6 +18,7 @@ library(DT)
 library(ggplot2)
 library(sortable)
 library(modelr)
+library(dplyr)
 
 # Questions/todos:
 # 1. Currently getting "Warning in predict.lm(model1(), test_dataset) :prediction from a rank-deficient fit may be misleading"
@@ -33,8 +34,8 @@ test_dataset = read.csv('test_data.csv', header=TRUE, sep=',')
 all_columns = names(train_dataset)
 originally_available_columns = all_columns[(all_columns != 'Chronic_illnesses') & 
                                            (all_columns != 'Race') & 
-                                           (!startsWith(all_columns, 'Age_')) & 
-                                           (all_columns != 'Female')]
+                                           (all_columns != 'Age') & 
+                                           (all_columns != 'Sex')]
                                                       
 
 exists("train_dataset")
@@ -116,7 +117,7 @@ observeEvent(input$add_sex_data, {
     }else{
       if(demographics_purchased$sex == 0){
         status_update_message$message = 'Data on sex purchased!'
-        reactive_available_columns$v = c(reactive_available_columns$v, 'Female')
+        reactive_available_columns$v = c(reactive_available_columns$v, 'Sex')
         updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
       }
       else{
@@ -137,7 +138,7 @@ observeEvent(input$add_age_data, {
     }else{
       if(demographics_purchased$age == 0){
         status_update_message$message = 'Data on age purchased!'
-        reactive_available_columns$v = c(reactive_available_columns$v, all_columns[startsWith(all_columns, 'Age_')])
+        reactive_available_columns$v = c(reactive_available_columns$v, 'Age')
         updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
       }
       else{
@@ -168,6 +169,13 @@ checkboxGroupInput(
   "variables_to_use_in_model", 
   "Drag variables to build your model",
   originally_available_columns)
+
+radioButtons(
+  'stratify_performance',
+  "How do you want to break down the results?",
+  choiceNames = c('Full population', 'By age', 'By sex', 'By race'),
+  choiceValues = c('full', 'Age', 'Sex', 'Race')
+)
 
 ```
 
@@ -212,13 +220,34 @@ test_dataset %>%
 
 ```{r}
 
-renderText({
-  sqrt(
-    sum(
-      (predict(model1(), test_dataset) - test_dataset$Chronic_illnesses)^2
+results_table = reactive({
+  test_dataset$preds = predict(model1(), test_dataset)
+  test_dataset$err = test_dataset$preds - test_dataset$Chronic_illnesses
+  if(input$stratify_performance == 'full'){
+    table = data.frame("Group"="Full population", "RMSE" = sqrt(
+      mean(
+        (test_dataset$err)^2
       )
     )
+    )
+  }else if(input$stratify_performance=='Age'){
+    table = test_dataset %>% 
+      group_by(Age) %>% 
+      summarize(RMSE=sqrt(mean(err^2)))
+  }else if(input$stratify_performance=='Race'){
+    table = test_dataset %>% 
+      group_by(Race) %>% 
+      summarize(RMSE=sqrt(mean(err^2)))
+  }
+  else{
+    table = test_dataset %>% 
+      group_by(Sex) %>% 
+      summarize(RMSE=sqrt(mean(err^2)))
+  }
+  table
 })
+
+renderTable({results_table()})
 ```
 
 
@@ -228,7 +257,7 @@ renderText({
 
 Data Description/Dictionary
 ===================================== 
-Predictor: Chronic_illnesses
+Thing to predict: Chronic_illnesses
 
 Factors:
 
