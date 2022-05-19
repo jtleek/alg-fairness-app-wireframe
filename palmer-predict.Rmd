@@ -52,6 +52,7 @@ n_rows_purchased <- reactiveValues(v = ORIGINAL_ROWS)
 cost_per_row <- reactiveValues(v = BASE_COST_PER_ROW)
 demographics_purchased <- reactiveValues(age = 0, sex = 0, race = 0)
 status_update_message <- reactiveValues(message='Do you wish to purchase additional training data?')
+reactive_available_demographics <- reactiveValues(v=c())
 reactive_available_columns <- reactiveValues(v = originally_available_columns)
 
 ```
@@ -95,8 +96,10 @@ observeEvent(input$add_race_data, {
     }else{
       if(demographics_purchased$race == 0){
         status_update_message$message = 'Data on race purchased!'
-        reactive_available_columns$v = c(reactive_available_columns$v, 'Race')
+        reactive_available_demographics$v = c(reactive_available_demographics$v, 'Race')
+        reactive_available_columns$v = c(originally_available_columns, reactive_available_demographics$v)
         updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
+        updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on race was already purchased.'
@@ -117,8 +120,10 @@ observeEvent(input$add_sex_data, {
     }else{
       if(demographics_purchased$sex == 0){
         status_update_message$message = 'Data on sex purchased!'
-        reactive_available_columns$v = c(reactive_available_columns$v, 'Sex')
+        reactive_available_demographics$v = c(reactive_available_demographics$v, 'Sex')
+        reactive_available_columns$v = c(originally_available_columns, reactive_available_demographics$v)
         updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
+        updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on sex was already purchased.'
@@ -138,8 +143,10 @@ observeEvent(input$add_age_data, {
     }else{
       if(demographics_purchased$age == 0){
         status_update_message$message = 'Data on age purchased!'
-        reactive_available_columns$v = c(reactive_available_columns$v, 'Age')
+        reactive_available_demographics$v = c(reactive_available_demographics$v, 'Age')
+        reactive_available_columns$v = c(originally_available_columns, reactive_available_demographics$v)
         updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
+        updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on age was already purchased.'
@@ -173,8 +180,7 @@ checkboxGroupInput(
 radioButtons(
   'stratify_performance',
   "How do you want to break down the results?",
-  choiceNames = c('Full population', 'By age', 'By sex', 'By race'),
-  choiceValues = c('full', 'Age', 'Sex', 'Race')
+  choices = c('Full population')
 )
 
 ```
@@ -223,13 +229,8 @@ test_dataset %>%
 results_table = reactive({
   test_dataset$preds = predict(model1(), test_dataset)
   test_dataset$err = test_dataset$preds - test_dataset$Chronic_illnesses
-  if(input$stratify_performance == 'full'){
-    table = data.frame("Group"="Full population", "RMSE" = sqrt(
-      mean(
-        (test_dataset$err)^2
-      )
-    )
-    )
+  if(input$stratify_performance == 'Full population'){
+    table = data.frame("Group"="Full population", "RMSE" = sqrt(mean((test_dataset$err)^2)))
   }else if(input$stratify_performance=='Age'){
     table = test_dataset %>% 
       group_by(Age) %>% 
@@ -239,10 +240,12 @@ results_table = reactive({
       group_by(Race) %>% 
       summarize(RMSE=sqrt(mean(err^2)))
   }
-  else{
+  else if(input$stratify_performance=='Sex'){
     table = test_dataset %>% 
       group_by(Sex) %>% 
       summarize(RMSE=sqrt(mean(err^2)))
+  }else{
+    stopifnot(FALSE)
   }
   table
 })
