@@ -98,8 +98,9 @@ observeEvent(input$add_race_data, {
         status_update_message$message = 'Data on race purchased!'
         reactive_available_demographics$v = c(reactive_available_demographics$v, 'Race')
         reactive_available_columns$v = c(originally_available_columns, reactive_available_demographics$v)
-        updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
+        #updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
         updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
+        updateRadioButtons(inputId='fit_separate_models', choices=c('Fit one model on full population', reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on race was already purchased.'
@@ -122,8 +123,9 @@ observeEvent(input$add_sex_data, {
         status_update_message$message = 'Data on sex purchased!'
         reactive_available_demographics$v = c(reactive_available_demographics$v, 'Sex')
         reactive_available_columns$v = c(originally_available_columns, reactive_available_demographics$v)
-        updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
+        #updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
         updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
+        updateRadioButtons(inputId='fit_separate_models', choices=c('Fit one model on full population', reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on sex was already purchased.'
@@ -145,8 +147,9 @@ observeEvent(input$add_age_data, {
         status_update_message$message = 'Data on age purchased!'
         reactive_available_demographics$v = c(reactive_available_demographics$v, 'Age')
         reactive_available_columns$v = c(originally_available_columns, reactive_available_demographics$v)
-        updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
+        #updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
         updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
+        updateRadioButtons(inputId='fit_separate_models', choices=c('Fit one model on full population', reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on age was already purchased.'
@@ -174,8 +177,15 @@ renderText({
 
 checkboxGroupInput(
   "variables_to_use_in_model", 
-  "Drag variables to build your model",
-  originally_available_columns)
+  "Which variables do you want to include in your model?",
+  originally_available_columns, 
+  inline=TRUE)
+
+radioButtons(
+  'fit_separate_models',
+  "Do you want to fit separate models by age, race, or sex?",
+  choices = c('Fit one model on full population')
+)
 
 radioButtons(
   'stratify_performance',
@@ -203,11 +213,16 @@ usable_train_dataset <- reactive({
 model1 <- reactive({
   if(length(input$variables_to_use_in_model) > 0){
     #change this to new data
-    lm1 = lm(as.formula(paste0("Chronic_illnesses ~ ",paste0(input$variables_to_use_in_model,collapse="+"))),
-         data=usable_train_dataset())
+    rhs_formula = paste0(input$variables_to_use_in_model, collapse="+")
+    if(input$fit_separate_models != 'Fit one model on full population'){
+      rhs_formula = paste0(input$fit_separate_models, '*(', rhs_formula, ')')
+    }
+    lm1 = lm(as.formula(paste0("Chronic_illnesses ~ ", rhs_formula)), data=usable_train_dataset())
   }else{
-    # change to new data
-    lm1 = lm(Chronic_illnesses ~ 1,data=usable_train_dataset())
+    if(input$fit_separate_models != 'Fit one model on full population'){
+      lm1 = lm(paste0('Chronic_illnesses ~ ', input$fit_separate_models), data=usable_train_dataset())
+    }else{lm1 = lm(Chronic_illnesses ~ 1,data=usable_train_dataset())}
+    
   }
   
 })
@@ -230,27 +245,39 @@ results_table = reactive({
   test_dataset$preds = predict(model1(), test_dataset)
   test_dataset$err = test_dataset$preds - test_dataset$Chronic_illnesses
   if(input$stratify_performance == 'Full population'){
-    table = data.frame("Group"="Full population", "RMSE" = sqrt(mean((test_dataset$err)^2)))
+    table = data.frame("Group"="Full population", 
+                       "RMSE" = sqrt(mean((test_dataset$err)^2)), 
+                       "n" = nrow(usable_train_dataset()))
   }else if(input$stratify_performance=='Age'){
     table = test_dataset %>% 
       group_by(Age) %>% 
       summarize(RMSE=sqrt(mean(err^2)))
+    counts = usable_train_dataset() %>% group_by(Age) %>% summarise(n = n())
+    counts['% of data'] = 100 * counts$n / nrow(usable_train_dataset())
+    table = merge(table, counts, by='Age')
+    
   }else if(input$stratify_performance=='Race'){
     table = test_dataset %>% 
       group_by(Race) %>% 
       summarize(RMSE=sqrt(mean(err^2)))
+    counts = usable_train_dataset() %>% group_by(Race) %>% summarise(n = n())
+    counts['% of data'] = 100 * counts$n / nrow(usable_train_dataset())
+    table = merge(table, counts, by='Race')
   }
   else if(input$stratify_performance=='Sex'){
     table = test_dataset %>% 
       group_by(Sex) %>% 
       summarize(RMSE=sqrt(mean(err^2)))
+    counts = usable_train_dataset() %>% group_by(Sex) %>% summarise(n = n())
+    counts['% of data'] = 100 * counts$n / nrow(usable_train_dataset())
+    table = merge(table, counts, by='Sex')
   }else{
     stopifnot(FALSE)
   }
   table
 })
 
-renderTable({results_table()})
+renderTable({results_table()}, digits=4)
 ```
 
 
