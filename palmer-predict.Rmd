@@ -248,6 +248,7 @@ results_table = reactive({
     table = data.frame("Group"="Full population", 
                        "RMSE" = sqrt(mean((test_dataset$err)^2)), 
                        "n" = nrow(usable_train_dataset()))
+    table['% of data'] = 100
   }else if(input$stratify_performance=='Age'){
     table = test_dataset %>% 
       group_by(Age) %>% 
