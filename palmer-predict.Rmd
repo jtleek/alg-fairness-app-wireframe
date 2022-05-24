@@ -48,7 +48,7 @@ DEMOGRAPHICS_COST_PER_ROW = 20
 ORIGINAL_BUDGET = 1000000
 ORIGINAL_ROWS = 100
 budget <- reactiveValues(v = ORIGINAL_BUDGET - ORIGINAL_ROWS * BASE_COST_PER_ROW)
-n_rows_purchased <- reactiveValues(v = ORIGINAL_ROWS)
+purchased_idxs <- reactiveValues(v = c(!logical(ORIGINAL_ROWS), logical(nrow(train_dataset) - ORIGINAL_ROWS)))
 cost_per_row <- reactiveValues(v = BASE_COST_PER_ROW)
 demographics_purchased <- reactiveValues(age = 0, sex = 0, race = 0)
 status_update_message <- reactiveValues(message='Do you wish to purchase additional training data?')
@@ -69,29 +69,66 @@ Column {data-width=300}
 ```{r}
 
 # data collection buttons
-actionButton("buy_thousand_more_rows", "Collect 1,000 more rows of data")
-actionButton("add_race_data", "Collect data on patient race")
-actionButton("add_sex_data", "Collect data on patient sex")
-actionButton("add_age_data", "Collect data on patient age")
 
 # define actions
 observeEvent(input$buy_thousand_more_rows, {
-  if((ORIGINAL_BUDGET - (n_rows_purchased$v + 1000) *  cost_per_row$v) < 0){
+  
+  n_rows_purchased = sum(purchased_idxs$v)
+  if((ORIGINAL_BUDGET - (n_rows_purchased + 1000) *  cost_per_row$v) < 0){
     status_update_message$message = 'You do not have enough budget to purchase additional rows of training data.'
-    
   }else{
-    n_rows_purchased$v = n_rows_purchased$v + 1000;
-    budget$v = ORIGINAL_BUDGET - n_rows_purchased$v *  cost_per_row$v;
-   status_update_message$message = '1,000 rows of training data purchased!'
+    rows_available_for_purchase = which(purchased_idxs$v == FALSE) # default 
+    message = '1,000 rows of training data purchased!'
+    if(startsWith(input$upsample_data, 'Gather data from')){
+      split_string = strsplit(input$upsample_data, split=' = ')
+      val = tolower(split_string[[1]][2])
+      remaining_tokens = strsplit(split_string[[1]][1], split = ' ')[[1]]
+      key = remaining_tokens[length(remaining_tokens)]
+      candidate_idxs = (purchased_idxs$v == FALSE) & (tolower(train_dataset[,key]) == val)
+      if(sum(candidate_idxs) >= 1000){
+        rows_available_for_purchase = which(candidate_idxs)
+        message = paste0('Purchased a thousand rows of training data with ', key, ' = ', val, '!') 
+      }else{
+        message = paste0('Unable to purchase a thousand rows of training data with ', key, ' = ', val, '; not enough data. Sampled from entire dataset.')
+      }
+    }
+    rows_purchased = rows_available_for_purchase[1:1000]
+    purchased_idxs$v[rows_purchased] = TRUE
+    n_rows_purchased = sum(purchased_idxs$v)
+    budget$v = ORIGINAL_BUDGET - n_rows_purchased *  cost_per_row$v;
+   status_update_message$message = message
   }
 })
 
+get_upsampling_choices <- function(available_demographics) {
+  upsampling_choices = c('No, sample from full population.')
+  for (dem in available_demographics) {
+    if(dem == 'Age'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Age =', as.list(unique(train_dataset$Age))))}
+    else if(dem == 'Sex'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Sex =', as.list(unique(train_dataset$Sex))))}
+    else if(dem == 'Race'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Race =', as.list(unique(train_dataset$Race))))}
+    else{stopifnot(FALSE)}
+  } 
+  upsampling_choices
+}
 
+radioButtons(
+  'upsample_data',
+  "Do you want to collect data on subpopulations?",
+  choices = c('No, sample from full population.')
+)
+
+
+actionButton("buy_thousand_more_rows", "Collect 1,000 more rows of data")
+
+
+actionButton("add_race_data", "Collect data on patient race")
+actionButton("add_sex_data", "Collect data on patient sex")
+actionButton("add_age_data", "Collect data on patient age")
 observeEvent(input$add_race_data, {
   potential_cost_per_row = (BASE_COST_PER_ROW + DEMOGRAPHICS_COST_PER_ROW * (max(demographics_purchased$race, 1) + 
                                                                        demographics_purchased$age + 
                                                                        demographics_purchased$sex))
-    if((ORIGINAL_BUDGET - n_rows_purchased$v *  potential_cost_per_row) < 0){
+    if((ORIGINAL_BUDGET - sum(purchased_idxs$v) *  potential_cost_per_row) < 0){
       status_update_message$message = 'You do not have enough budget to purchase data on race.'
     }else{
       if(demographics_purchased$race == 0){
@@ -101,13 +138,14 @@ observeEvent(input$add_race_data, {
         #updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
         updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
         updateRadioButtons(inputId='fit_separate_models', choices=c('Fit one model on full population', reactive_available_demographics$v))
+        updateRadioButtons(inputId='upsample_data', choices=get_upsampling_choices(reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on race was already purchased.'
       }
       demographics_purchased$race = 1;
       cost_per_row$v = potential_cost_per_row
-      budget$v = ORIGINAL_BUDGET - n_rows_purchased$v *  cost_per_row$v;
+      budget$v = ORIGINAL_BUDGET - sum(purchased_idxs$v) *  cost_per_row$v;
      
     }
   })
@@ -116,7 +154,7 @@ observeEvent(input$add_sex_data, {
   potential_cost_per_row = (BASE_COST_PER_ROW + DEMOGRAPHICS_COST_PER_ROW * (max(demographics_purchased$sex, 1) + 
                                                                        demographics_purchased$age + 
                                                                        demographics_purchased$race))
-    if((ORIGINAL_BUDGET - n_rows_purchased$v *  potential_cost_per_row) < 0){
+    if((ORIGINAL_BUDGET - sum(purchased_idxs$v) *  potential_cost_per_row) < 0){
      status_update_message$message = 'You do not have enough budget to purchase data on sex.'
     }else{
       if(demographics_purchased$sex == 0){
@@ -126,21 +164,23 @@ observeEvent(input$add_sex_data, {
         #updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
         updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
         updateRadioButtons(inputId='fit_separate_models', choices=c('Fit one model on full population', reactive_available_demographics$v))
+        updateRadioButtons(inputId='upsample_data', choices=get_upsampling_choices(reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on sex was already purchased.'
       }
       demographics_purchased$sex = 1;
       cost_per_row$v = potential_cost_per_row
-      budget$v = ORIGINAL_BUDGET - n_rows_purchased$v *  cost_per_row$v;
+      budget$v = ORIGINAL_BUDGET - sum(purchased_idxs$v) *  cost_per_row$v;
       
     }
   })
+
 observeEvent(input$add_age_data, {
   potential_cost_per_row = (BASE_COST_PER_ROW + DEMOGRAPHICS_COST_PER_ROW * (max(demographics_purchased$age, 1) + 
                                                                        demographics_purchased$sex + 
                                                                        demographics_purchased$race))
-    if((ORIGINAL_BUDGET - n_rows_purchased$v *  potential_cost_per_row) < 0){
+    if((ORIGINAL_BUDGET - sum(purchased_idxs$v) *  potential_cost_per_row) < 0){
        status_update_message$message = 'You do not have enough budget to purchase data on age.'
     }else{
       if(demographics_purchased$age == 0){
@@ -150,13 +190,14 @@ observeEvent(input$add_age_data, {
         #updateCheckboxGroupInput(inputId="variables_to_use_in_model", choices=reactive_available_columns$v)
         updateRadioButtons(inputId='stratify_performance', choices=c('Full population', reactive_available_demographics$v))
         updateRadioButtons(inputId='fit_separate_models', choices=c('Fit one model on full population', reactive_available_demographics$v))
+        updateRadioButtons(inputId='upsample_data', choices=get_upsampling_choices(reactive_available_demographics$v))
       }
       else{
         status_update_message$message = 'Data on age was already purchased.'
       }
       demographics_purchased$age = 1;
       cost_per_row$v = potential_cost_per_row
-      budget$v = ORIGINAL_BUDGET - n_rows_purchased$v *  cost_per_row$v;
+      budget$v = ORIGINAL_BUDGET - sum(purchased_idxs$v) *  cost_per_row$v;
       
     }
   })
@@ -168,7 +209,7 @@ renderText({
 })
 
 renderText({
- paste('Total rows in dataset:', n_rows_purchased$v)
+ paste('Total rows in dataset:', sum(purchased_idxs$v))
 })
 
 renderText({
@@ -204,9 +245,8 @@ Column {data-width=400, data-height=300}
 
 ```{r}
 
-
 usable_train_dataset <- reactive({
-  train_dataset[1:n_rows_purchased$v,]
+  train_dataset[purchased_idxs$v,]
 })
 
 
