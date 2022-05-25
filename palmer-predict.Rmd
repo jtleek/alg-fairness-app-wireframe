@@ -60,70 +60,18 @@ reactive_available_columns <- reactiveValues(v = originally_available_columns)
 
 Build model
 =====================================  
-  
 
-
-Column {data-width=300}
+Column {data-width=400}
 ----------------------------------------------------------------------- 
 
-```{r}
+### Collecting training data: do you wish to purchase demographic data for each patient (age, race, and sex)? {data-height=300}
 
-# data collection buttons
+```{r} 
+actionButton("add_race_data", "Collect data on patient race (+$20/patient)")#, style='padding:4px; font-size:80%')
+actionButton("add_sex_data", "Collect data on patient sex (+$20/patient)")#, style='padding:4px; font-size:80%')
+actionButton("add_age_data", "Collect data on patient age (+$20/patient)")#, style='padding:4px; font-size:80%')
+renderText(status_update_message$message)
 
-# define actions
-observeEvent(input$buy_thousand_more_rows, {
-  
-  n_rows_purchased = sum(purchased_idxs$v)
-  if((ORIGINAL_BUDGET - (n_rows_purchased + 1000) *  cost_per_row$v) < 0){
-    status_update_message$message = 'You do not have enough budget to purchase additional rows of training data.'
-  }else{
-    rows_available_for_purchase = which(purchased_idxs$v == FALSE) # default 
-    message = '1,000 rows of training data purchased!'
-    if(startsWith(input$upsample_data, 'Gather data from')){
-      split_string = strsplit(input$upsample_data, split=' = ')
-      val = tolower(split_string[[1]][2])
-      remaining_tokens = strsplit(split_string[[1]][1], split = ' ')[[1]]
-      key = remaining_tokens[length(remaining_tokens)]
-      candidate_idxs = (purchased_idxs$v == FALSE) & (tolower(train_dataset[,key]) == val)
-      if(sum(candidate_idxs) >= 1000){
-        rows_available_for_purchase = which(candidate_idxs)
-        message = paste0('Purchased a thousand rows of training data with ', key, ' = ', val, '!') 
-      }else{
-        message = paste0('Unable to purchase a thousand rows of training data with ', key, ' = ', val, '; not enough data. Sampled from entire dataset.')
-      }
-    }
-    rows_purchased = rows_available_for_purchase[1:1000]
-    purchased_idxs$v[rows_purchased] = TRUE
-    n_rows_purchased = sum(purchased_idxs$v)
-    budget$v = ORIGINAL_BUDGET - n_rows_purchased *  cost_per_row$v;
-   status_update_message$message = message
-  }
-})
-
-get_upsampling_choices <- function(available_demographics) {
-  upsampling_choices = c('No, sample from full population.')
-  for (dem in available_demographics) {
-    if(dem == 'Age'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Age =', as.list(unique(train_dataset$Age))))}
-    else if(dem == 'Sex'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Sex =', as.list(unique(train_dataset$Sex))))}
-    else if(dem == 'Race'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Race =', as.list(unique(train_dataset$Race))))}
-    else{stopifnot(FALSE)}
-  } 
-  upsampling_choices
-}
-
-radioButtons(
-  'upsample_data',
-  "Do you want to collect data on subpopulations?",
-  choices = c('No, sample from full population.')
-)
-
-
-actionButton("buy_thousand_more_rows", "Collect 1,000 more rows of data")
-
-
-actionButton("add_race_data", "Collect data on patient race")
-actionButton("add_sex_data", "Collect data on patient sex")
-actionButton("add_age_data", "Collect data on patient age")
 observeEvent(input$add_race_data, {
   potential_cost_per_row = (BASE_COST_PER_ROW + DEMOGRAPHICS_COST_PER_ROW * (max(demographics_purchased$race, 1) + 
                                                                        demographics_purchased$age + 
@@ -201,21 +149,77 @@ observeEvent(input$add_age_data, {
       
     }
   })
+```
 
+### Collecting training data: do you wish to collect data for more patients?
+
+```{r}
+
+radioButtons(
+  'upsample_data',
+  "Do you want to collect data on subpopulations?",
+  choices = c('No, sample from full population.')
+)
+
+
+actionButton("buy_thousand_more_rows", "Collect 1,000 more rows of data")
+
+observeEvent(input$buy_thousand_more_rows, {
+  
+  n_rows_purchased = sum(purchased_idxs$v)
+  if((ORIGINAL_BUDGET - (n_rows_purchased + 1000) *  cost_per_row$v) < 0){
+    status_update_message$message = 'You do not have enough budget to purchase additional rows of training data.'
+  }else{
+    rows_available_for_purchase = which(purchased_idxs$v == FALSE) # default 
+    message = '1,000 rows of training data purchased!'
+    if(startsWith(input$upsample_data, 'Gather data from')){
+      split_string = strsplit(input$upsample_data, split=' = ')
+      val = tolower(split_string[[1]][2])
+      remaining_tokens = strsplit(split_string[[1]][1], split = ' ')[[1]]
+      key = remaining_tokens[length(remaining_tokens)]
+      candidate_idxs = (purchased_idxs$v == FALSE) & (tolower(train_dataset[,key]) == val)
+      if(sum(candidate_idxs) >= 1000){
+        rows_available_for_purchase = which(candidate_idxs)
+        message = paste0('Purchased a thousand rows of training data with ', key, ' = ', val, '!') 
+      }else{
+        message = paste0('Unable to purchase a thousand rows of training data with ', key, ' = ', val, '; not enough data. Sampled from entire dataset.')
+      }
+    }
+    rows_purchased = rows_available_for_purchase[1:1000]
+    purchased_idxs$v[rows_purchased] = TRUE
+    n_rows_purchased = sum(purchased_idxs$v)
+    budget$v = ORIGINAL_BUDGET - n_rows_purchased *  cost_per_row$v;
+   status_update_message$message = message
+  }
+})
+
+get_upsampling_choices <- function(available_demographics) {
+  upsampling_choices = c('No, sample from full population.')
+  for (dem in available_demographics) {
+    if(dem == 'Age'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Age =', as.list(unique(train_dataset$Age))))}
+    else if(dem == 'Sex'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Sex =', as.list(unique(train_dataset$Sex))))}
+    else if(dem == 'Race'){upsampling_choices = c(upsampling_choices, paste('Gather data from people with Race =', as.list(unique(train_dataset$Race))))}
+    else{stopifnot(FALSE)}
+  } 
+  upsampling_choices
+}
 renderText(status_update_message$message)
 
-renderText({
- paste('Total remaining budget: $', as.integer(budget$v), sep='')
-})
+```
 
-renderText({
- paste('Total rows in dataset:', sum(purchased_idxs$v))
-})
+### Remaining training data budget {data-height=100}
+```{r}
+renderText(paste0('Total remaining budget: $', as.integer(budget$v), '. ',
+                  'Total rows in dataset: ', sum(purchased_idxs$v), '. ',
+                  'Cost per row of data: $', cost_per_row$v, '.'))
 
-renderText({
- paste('Cost per row of data: $', cost_per_row$v, sep='')
-})
+```
 
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Designing the model {data-height=300}
+```{r}
 checkboxGroupInput(
   "variables_to_use_in_model", 
   "Which variables do you want to include in your model?",
@@ -228,22 +232,17 @@ radioButtons(
   choices = c('Fit one model on full population')
 )
 
+```
+
+### Evaluating the model
+
+```{r}
+
 radioButtons(
   'stratify_performance',
   "How do you want to break down the results?",
   choices = c('Full population')
 )
-
-```
-
-
-
-Column {data-width=400, data-height=300}
------------------------------------------------------------------------
-
-### Predictions vs truth
-
-```{r}
 
 usable_train_dataset <- reactive({
   train_dataset[purchased_idxs$v,]
@@ -267,59 +266,61 @@ model1 <- reactive({
   
 })
 
-renderPlot({ 
-  
-test_dataset %>%
-    add_predictions(model1()) %>%
-    ggplot(aes_string(x="Chronic_illnesses",y="pred")) +
-    geom_point()
-
-})
-```
-
-### RMSE
-
-```{r}
-
 results_table = reactive({
   test_dataset$preds = predict(model1(), test_dataset)
   test_dataset$err = test_dataset$preds - test_dataset$Chronic_illnesses
   if(input$stratify_performance == 'Full population'){
     table = data.frame("Group"="Full population", 
-                       "RMSE" = sqrt(mean((test_dataset$err)^2)), 
-                       "n" = nrow(usable_train_dataset()))
-    table['% of data'] = 100
+                       "RMSE" = sqrt(mean((test_dataset$err)^2)))
+    table["Number in training data"] = nrow(usable_train_dataset())
+    table['% of training data'] = 100
   }else if(input$stratify_performance=='Age'){
     table = test_dataset %>% 
       group_by(Age) %>% 
       summarize(RMSE=sqrt(mean(err^2)))
-    counts = usable_train_dataset() %>% group_by(Age) %>% summarise(n = n())
-    counts['% of data'] = 100 * counts$n / nrow(usable_train_dataset())
+    counts = usable_train_dataset() %>% group_by(Age) %>% summarise(`Number in training data` = n())
+    counts['% of training data'] = 100 * counts['Number in training data'] / nrow(usable_train_dataset())
     table = merge(table, counts, by='Age')
+    
+    test_counts = test_dataset %>% group_by(Age) %>% summarise(n = n()) 
+    test_counts['% of test data'] = 100 * test_counts['n'] / nrow(test_dataset)
+    test_counts = test_counts %>% select(-n)
+    table = merge(table, test_counts, by='Age')
     
   }else if(input$stratify_performance=='Race'){
     table = test_dataset %>% 
       group_by(Race) %>% 
       summarize(RMSE=sqrt(mean(err^2)))
-    counts = usable_train_dataset() %>% group_by(Race) %>% summarise(n = n())
-    counts['% of data'] = 100 * counts$n / nrow(usable_train_dataset())
+    counts = usable_train_dataset() %>% group_by(Race) %>% summarise(`Number in training data` = n())
+    counts['% of training data'] = 100 * counts['Number in training data'] / nrow(usable_train_dataset())
     table = merge(table, counts, by='Race')
+    
+    test_counts = test_dataset %>% group_by(Race) %>% summarise(n = n()) 
+    test_counts['% of test data'] = 100 * test_counts['n'] / nrow(test_dataset)
+    test_counts = test_counts %>% select(-n)
+    table = merge(table, test_counts, by='Race')
   }
   else if(input$stratify_performance=='Sex'){
     table = test_dataset %>% 
       group_by(Sex) %>% 
       summarize(RMSE=sqrt(mean(err^2)))
-    counts = usable_train_dataset() %>% group_by(Sex) %>% summarise(n = n())
-    counts['% of data'] = 100 * counts$n / nrow(usable_train_dataset())
+    counts = usable_train_dataset() %>% group_by(Sex) %>% summarise(`Number in training data` = n())
+    counts['% of training data'] = 100 * counts['Number in training data']  / nrow(usable_train_dataset())
     table = merge(table, counts, by='Sex')
+    
+    test_counts = test_dataset %>% group_by(Sex) %>% summarise(n = n()) 
+    test_counts['% of test data'] = 100 * test_counts['n'] / nrow(test_dataset)
+    test_counts = test_counts %>% select(-n)
+    table = merge(table, test_counts, by='Sex')
   }else{
     stopifnot(FALSE)
   }
   table
 })
 
-renderTable({results_table()}, digits=4)
+renderTable({results_table()}, digits=2)
 ```
+
 
 
 
